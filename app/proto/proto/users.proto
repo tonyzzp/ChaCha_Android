@@ -1,0 +1,6 @@
+syntax = "proto3";
+package me.izzp.chacha.proto;
+
+message User {
+    int32 name =1;
+}
