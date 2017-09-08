@@ -1,16 +1,19 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
+
     defaultConfig {
         applicationId "me.izzp.chacha"
         minSdkVersion 14
-        targetSdkVersion 25
+        targetSdkVersion 22
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
+
     buildTypes {
         release {
             minifyEnabled false
@@ -27,9 +30,10 @@ android {
 }
 
 task buildProto(type: Exec) {
-    mkdir './src/main/protojava'
     group 'mytasks'
     workingDir './proto'
+    delete './src/main/protojava'
+    mkdir './src/main/protojava'
     commandLine 'cmd', '/c', 'protoc.exe --java_out=../src/main/protojava ./proto/*.proto'
 }
 
@@ -42,4 +46,9 @@ dependencies {
     compile 'com.android.support.constraint:constraint-layout:1.0.0-alpha7'
     compile 'com.google.protobuf:protobuf-java:3.4.0'
     testCompile 'junit:junit:4.12'
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
+}
+
+repositories {
+    mavenCentral()
 }

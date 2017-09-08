@@ -1,0 +1,20 @@
+syntax = "proto3";
+package protobeans;
+option java_package = "me.izzp.chacha.proto";
+
+message TextMessage {
+    int32 receiver = 1;
+    string content = 2;
+    int64 sendTime = 3;
+}
+
+message TextMessgeResponse {
+    bool ok = 1;
+    string error = 2;
+}
+
+message ReceiveTextMessage {
+    int32 sender = 1;
+    string content = 2;
+    int64 sendTime = 3;
+}
