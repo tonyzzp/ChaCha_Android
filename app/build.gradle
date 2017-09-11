@@ -1,5 +1,6 @@
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
+apply plugin: 'com.google.protobuf'
 
 android {
     compileSdkVersion 25
@@ -23,18 +24,30 @@ android {
 
     sourceSets {
         main {
-            java.srcDir("proto")
-            java.srcDir("src/main/protojava")
+            java.srcDir("src/main/proto")
         }
     }
-}
 
-task buildProto(type: Exec) {
-    group 'mytasks'
-    workingDir './proto'
-    delete './src/main/protojava'
-    mkdir './src/main/protojava'
-    commandLine 'cmd', '/c', 'protoc.exe --java_out=../src/main/protojava ./proto/*.proto'
+    protobuf {
+        protoc {
+            artifact = 'com.google.protobuf:protoc:3.4.0'
+        }
+        plugins {
+            lite {
+                artifact = "com.google.protobuf:protoc-gen-javalite:3.0.0"
+            }
+        }
+        generateProtoTasks {
+            all().each { task ->
+                task.builtins {
+                    remove java
+                }
+                task.plugins {
+                    lite {}
+                }
+            }
+        }
+    }
 }
 
 dependencies {
