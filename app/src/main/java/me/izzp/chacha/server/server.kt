@@ -1,7 +1,6 @@
 package me.izzp.chacha.server
 
 import com.google.protobuf.MessageLite
-import com.google.protobuf.MessageLiteOrBuilder
 import me.izzp.chacha.Bytes2Int
 import me.izzp.chacha.LogD
 import me.izzp.chacha.ReadFull
@@ -15,7 +14,6 @@ import java.net.Socket
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
-import kotlin.reflect.KClass
 
 /**
  * Created by zzp on 2017-09-11.
@@ -32,30 +30,31 @@ object Server {
     private var ip = ""
     private var port = 0
     private lateinit var stateChangeListener: () -> Unit
-    private lateinit var processor: (cmd: Int, msg: MessageLite) -> Unit
+    private lateinit var processor: (cmd: Int, msg: MessageLite?) -> Unit
     private val sendingQueue = ConcurrentLinkedQueue<Packet>()
     private val lock = ReentrantLock()
     private val condition: Condition by lazy {
         lock.newCondition()
     }
-    private val messageMap: Map<Int, KClass<out MessageLiteOrBuilder>> = mapOf(
-            0X21001 to Account.LoginResponse::class,
-            0x21002 to Account.RegistResponse::class,
-            0x22001 to Message.TextMessageOrBuilder::class,
-            0x22002 to Message.TextMessage::class,
-            0x23001 to Friends.SearchUserResp::class,
-            0x23002 to Friends.AddFriendResp::class,
-            0x23003 to Friends.AddFriend::class,
-            0x23004 to Friends.NewFriend::class,
-            0x23005 to Friends.FriendsList::class,
-            0x23006 to Friends.RemoveFriend::class
+
+    private val messageMap = mapOf(
+            0x21001 to { bytes: ByteArray -> Account.LoginResponse.parseFrom(bytes) },
+            0x21002 to { bytes: ByteArray -> Account.RegistResponse.parseFrom(bytes) },
+            CMD_CLIENT_SEND_TEXT_MSG_RESP to { bytes: ByteArray -> Message.TextMessgeResponse.parseFrom(bytes) },
+            0x22002 to { bytes: ByteArray -> Message.TextMessage.parseFrom(bytes) },
+            0x23001 to { bytes: ByteArray -> Friends.SearchUserResp.parseFrom(bytes) },
+            0x23002 to { bytes: ByteArray -> Friends.AddFriendResp.parseFrom(bytes) },
+            0x23003 to { bytes: ByteArray -> Friends.AddFriend.parseFrom(bytes) },
+            0x23004 to { bytes: ByteArray -> Friends.NewFriend.parseFrom(bytes) },
+            0x23005 to { bytes: ByteArray -> Friends.FriendsList.parseFrom(bytes) },
+            0x23006 to { bytes: ByteArray -> Friends.RemoveFriend.parseFrom(bytes) }
     )
 
-    fun init(ip: String, port: Int, stateChangeListener: () -> Unit, processor: (cmd: Int, msg: MessageLite) -> Unit) {
+    fun init(ip: String, port: Int) {
         this.ip = ip
         this.port = port
-        this.stateChangeListener = stateChangeListener
-        this.processor = processor
+        this.stateChangeListener = Chatter::onStateChanged
+        this.processor = Chatter::onMessageReceived
     }
 
     fun open() {
@@ -70,6 +69,7 @@ object Server {
                 outStream = socket!!.getOutputStream()
                 onConnected()
             } catch (e: Exception) {
+                e.printStackTrace()
                 onFailed()
             }
         }.start()
@@ -105,7 +105,7 @@ object Server {
         Thread {
             while (state == State.Connected) {
                 val stream = inStream ?: return@Thread
-                var msg: MessageLite? = null
+                var msg: MessageLite?
                 var cmd = 0
                 var content: ByteArray? = null
                 var ioerror = false
@@ -123,20 +123,16 @@ object Server {
                     msg = resolvePacket(cmd, content!!)
                     if (msg == null) {
                         LogD(String.format("有包未解析%x", cmd))
-                    } else {
-                        ui {
-                            processor(cmd, msg!!)
-                        }
+                    }
+                    ui {
+                        processor(cmd, msg)
                     }
                 }
             }
         }.start()
     }
 
-    private fun resolvePacket(cmd: Int, content: ByteArray): MessageLite? {
-        val msg = messageMap[cmd]?.java?.getDeclaredMethod("parseFrom", ByteArray::class.java)?.invoke(null, content)
-        return msg as MessageLite?
-    }
+    private fun resolvePacket(cmd: Int, content: ByteArray): MessageLite? = messageMap[cmd]?.invoke(content)
 
     private fun onClosed() {
         if (state == State.Closed) {
@@ -160,8 +156,9 @@ object Server {
         }
     }
 
-    fun send(packet: Packet) {
-        sendingQueue.offer(packet)
+    fun send(cmd: Int, msg: MessageLite?) {
+        val p = Packet(cmd, msg)
+        sendingQueue.offer(p)
         lock.lock()
         condition.signalAll()
         lock.unlock()

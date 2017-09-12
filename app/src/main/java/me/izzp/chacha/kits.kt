@@ -3,7 +3,9 @@ package me.izzp.chacha
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.support.v4.app.Fragment
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import java.io.InputStream
 
@@ -57,4 +59,20 @@ fun LogD(format: Any?, vararg objs: Any) {
 
 fun Context.toast(s: String, duration: Int = Toast.LENGTH_SHORT) {
     Toast.makeText(this, s, duration).show()
+}
+
+fun Fragment.toast(s: String, duration: Int = Toast.LENGTH_SHORT) {
+    context.toast(s, duration)
+}
+
+fun View?.show() {
+    this?.visibility = View.VISIBLE
+}
+
+fun View?.hide() {
+    this?.visibility = View.INVISIBLE
+}
+
+fun View?.gone() {
+    this?.visibility = View.GONE
 }
